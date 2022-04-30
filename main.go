@@ -48,6 +48,7 @@ func main() {
 		if e != nil {
 			panic(e)
 		}
+
 		var stateData []handlers.State
 		for key, value := range allStateData {
 			var total handlers.TotalData
