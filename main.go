@@ -9,7 +9,6 @@ import (
 	"log"
 	"net/http"
 	"time"
-
 	"github.com/ilyakaznacheev/cleanenv"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
