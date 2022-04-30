@@ -1,15 +1,21 @@
 package main
 
 import (
+	"context"
 	"covidApp/handlers"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"log"
 	"net/http"
+	"time"
 
 	"github.com/ilyakaznacheev/cleanenv"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
+	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
 var e = echo.New()
@@ -20,6 +26,32 @@ func init() {
 	if err != nil {
 		e.Logger.Fatal("Unable to load configuration")
 	}
+	createMongoConnection()
+}
+func createMongoConnection() {
+	serverAPIOptions := options.ServerAPI(options.ServerAPIVersion1)
+	clientOptions := options.Client().
+		ApplyURI("mongodb+srv://ashlyjustin:iamgroot@coviddatacluster.ssyqx.mongodb.net/Covid?retryWrites=true&w=majority").
+		SetServerAPIOptions(serverAPIOptions)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	client, err := mongo.Connect(ctx, clientOptions)
+	if err != nil {
+		log.Fatal(err)
+	}
+	fmt.Println(client)
+	covidDatabase := client.Database("Covid")
+	covidCollection := covidDatabase.Collection("StateData")
+	podcastResult, err := covidCollection.InsertOne(ctx, bson.D{
+		{Key: "title", Value: "The Polyglot Developer Podcast"},
+		{Key: "author", Value: "Nic Raboy"},
+	})
+	if err != nil {
+		fmt.Println(err)
+	} else {
+		fmt.Println("hello", podcastResult)
+	}
+
 }
 func main() {
 	handlers.Common()
@@ -51,15 +83,14 @@ func main() {
 
 		var stateData []handlers.State
 		for key, value := range allStateData {
-			var total handlers.TotalData
-			tree := make(map[string]json.RawMessage)
-			fmt.Println(string(value))
-			json.Unmarshal(value, &tree)
-			json.Unmarshal(tree["total"], &total)
-			state := handlers.State{StateCode: key, Total: total}
+			var state handlers.State
+			e := json.Unmarshal(value, &state)
+			if e != nil {
+				panic(e)
+			}
+			state.StateCode = key
 			stateData = append(stateData, state)
 		}
-		fmt.Println(stateData)
 		return c.JSON(http.StatusOK, stateData)
 	})
 	e.Logger.Fatal(e.Start(":1323"))
