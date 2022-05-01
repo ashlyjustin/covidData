@@ -1,1 +1,4 @@
-COVID_DATA_URL: 'https://data.covid19india.org/v4/min/data.min.json'
+COVID_DATA_URL: "https://data.covid19india.org/v4/min/data.min.json"
+MONGO_DB_URL : "mongodb+srv://ashlyjustin:iamgroot@coviddatacluster.ssyqx.mongodb.net/Covid?retryWrites=true&w=majority"
+DATABASE : "Covid"
+COLLECTION : "StateData"

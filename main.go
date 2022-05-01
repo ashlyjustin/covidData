@@ -19,6 +19,12 @@ import (
 )
 
 var e = echo.New()
+var mongoClient mongo.Client
+var (
+	c        *mongo.Client
+	db       *mongo.Database
+	stateCol *mongo.Collection
+)
 
 func init() {
 	fmt.Println("inside init")
@@ -26,6 +32,7 @@ func init() {
 	if err != nil {
 		e.Logger.Fatal("Unable to load configuration")
 	}
+	fmt.Println(handlers.Cfg)
 	createMongoConnection()
 }
 func createMongoConnection() {
@@ -33,39 +40,44 @@ func createMongoConnection() {
 	clientOptions := options.Client().
 		ApplyURI("mongodb+srv://ashlyjustin:iamgroot@coviddatacluster.ssyqx.mongodb.net/Covid?retryWrites=true&w=majority").
 		SetServerAPIOptions(serverAPIOptions)
-	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Hour)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	fmt.Println("connected")
 	defer cancel()
 	var err error
-	mongoClient, err := mongo.Connect(ctx, clientOptions)
+	c, err := mongo.Connect(ctx, clientOptions)
 	if err != nil {
 		log.Fatal(err)
 	}
-	covidDatabase := mongoClient.Database("Covid")
-	covidCollection := covidDatabase.Collection("StateData")
+	err = c.Ping(context.Background(), nil)
+	if err != nil {
+		log.Fatal(err)
+	}
+	db = c.Database(handlers.Cfg.Database)
+	stateCol = db.Collection(handlers.Cfg.Collection)
+	fmt.Println(c, stateCol, "state collection")
+	// postCovidData(c)
+
+}
+func postCovidData() {
+	fmt.Println("inside mongo client post")
+
 	var allStateData []handlers.State
 	allStateData = getAllCovidData()
 	fmt.Println("reeached insert", allStateData)
+	count := 0
 	for _, state := range allStateData {
 		filter := bson.M{"StateCode": state.StateCode}
 		// not:=bson.M{"Total":state.Total,"Meta":state.Meta}}
 		update := bson.M{"$set": state}
 		opts := options.Update().SetUpsert(true)
 
-		result, err := covidCollection.UpdateOne(context.TODO(), filter, update, opts)
+		_, err := stateCol.UpdateOne(context.TODO(), filter, update, opts)
 		if err != nil {
 			panic(err)
 		}
-		fmt.Println(result)
-		fmt.Printf("Number of documents updated: %v\n", result.ModifiedCount)
-		fmt.Printf("Number of documents upserted: %v\n", result.UpsertedCount)
+		count++
 	}
-
-	fmt.Println(mongoClient)
-	// postCovidData()
-
-}
-func postCovidData() {
+	fmt.Println("Total updated objects : ", count)
 
 	// covidCollection.InsertMany(json.Marshal(all÷StateData))
 }
@@ -103,8 +115,10 @@ func getAllCovidData() []handlers.State {
 func main() {
 	e.Use(middleware.Logger())
 	e.Use(middleware.Recover())
+	h := &handlers.StateHandler{Col: stateCol}
 	e.GET("/", func(c echo.Context) error {
 		return c.String(http.StatusOK, "Hello, World!")
 	})
+	e.GET("/getStateData", h.GetStateData)
 	e.Logger.Fatal(e.Start(":1323"))
 }

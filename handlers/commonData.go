@@ -11,7 +11,7 @@ func Common() {
 
 type State struct {
 	// ID        primitive.ObjectID `json:"_id" bson:"_id"`
-	StateCode string    `json:"stateCode" bson:"StateCode"`
+	StateCode string    `json:"StateCode" bson:"StateCode"`
 	Total     TotalData `json:"total" bson:"total"`
 	Meta      MetaData  `json:"meta" bson:"meta"`
 }
@@ -27,4 +27,7 @@ type MetaData struct {
 }
 type User struct {
 	ip string
+}
+type ErrorMessage struct {
+	Message string `json:"message"`
 }
