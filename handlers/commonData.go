@@ -10,9 +10,10 @@ func Common() {
 }
 
 type State struct {
-	StateCode string    `json:"stateCode"`
-	Total     TotalData `json:"total"`
-	Meta      MetaData  `json:"meta"`
+	// ID        primitive.ObjectID `json:"_id" bson:"_id"`
+	StateCode string    `json:"stateCode" bson:"StateCode"`
+	Total     TotalData `json:"total" bson:"total"`
+	Meta      MetaData  `json:"meta" bson:"meta"`
 }
 type TotalData struct {
 	Confirmed int `json:"confirmed"`
