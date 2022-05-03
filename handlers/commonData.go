@@ -5,6 +5,46 @@ import (
 	"time"
 )
 
+var StateCodesList = [...]string{
+	"AN",
+	"AP",
+	"AR",
+	"AS",
+	"BR",
+	"CH",
+	"CT",
+	"DL",
+	"DN",
+	"GA",
+	"GJ",
+	"HP",
+	"HR",
+	"JH",
+	"JK",
+	"KA",
+	"KL",
+	"LA",
+	"LD",
+	"MH",
+	"ML",
+	"MN",
+	"MP",
+	"MZ",
+	"NL",
+	"OR",
+	"PB",
+	"PY",
+	"RJ",
+	"SK",
+	"TG",
+	"TN",
+	"TR",
+	"TT",
+	"UP",
+	"UT",
+	"WB",
+}
+
 func Common() {
 	fmt.Println("from common")
 }
@@ -16,14 +56,14 @@ type State struct {
 	Meta      MetaData  `json:"meta" bson:"meta"`
 }
 type TotalData struct {
-	Confirmed int `json:"confirmed"`
-	Tested    int `json:"tested"`
-	Recovered int `json:"recovered"`
-	Deceased  int `json:"deceased"`
+	Confirmed int `json:"confirmed" bson:"confirmed"`
+	Tested    int `json:"tested" bson:"tested"`
+	Recovered int `json:"recovered" bson:"recovered"`
+	Deceased  int `json:"deceased" bson:"deceased"`
 }
 type MetaData struct {
-	LastUpdated time.Time `json:"last_updated"`
-	Population  int       `json:"population"`
+	LastUpdated time.Time `json:"last_updated" bson:"last_updated"`
+	Population  int       `json:"population" bson:"population"`
 }
 type User struct {
 	ip string

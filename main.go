@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/go-redis/redis/v8"
 	"github.com/ilyakaznacheev/cleanenv"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
@@ -21,9 +22,10 @@ import (
 var e = echo.New()
 var mongoClient mongo.Client
 var (
-	c        *mongo.Client
-	db       *mongo.Database
-	stateCol *mongo.Collection
+	c          *mongo.Client
+	db         *mongo.Database
+	stateCol   *mongo.Collection
+	RedisCache *redis.Client
 )
 
 func init() {
@@ -54,8 +56,12 @@ func createMongoConnection() {
 	}
 	db = c.Database(handlers.Cfg.Database)
 	stateCol = db.Collection(handlers.Cfg.Collection)
+	filter := make(map[string]interface{})
+	DeleteResult, err := stateCol.DeleteMany(context.Background(), filter)
+	fmt.Println(DeleteResult)
 	fmt.Println(c, stateCol, "state collection")
-	// postCovidData(c)
+	createRedisCache()
+	postCovidData()
 
 }
 func postCovidData() {
@@ -112,10 +118,39 @@ func getAllCovidData() []handlers.State {
 	}
 	return stateData
 }
+
+type Object struct {
+	Str string
+	Num int
+}
+
+func createRedisCache() {
+	RedisCache = redis.NewClient(&redis.Options{
+		Addr:     "localhost:6379",
+		Password: "",
+		DB:       0,
+	})
+	ctx := context.Background()
+	pong, err := RedisCache.Ping(context.Background()).Result()
+	fmt.Println(pong, err)
+	err = RedisCache.Set(ctx, "name", "Elliot", 30*time.Minute).Err()
+	// if there has been an error setting the value
+	// handle the error
+	if err != nil {
+		fmt.Println(err)
+	}
+	val, err := RedisCache.Get(ctx, "AN").Result()
+	if err != nil {
+		fmt.Println(err)
+	}
+
+	fmt.Println(val)
+}
+
 func main() {
 	e.Use(middleware.Logger())
 	e.Use(middleware.Recover())
-	h := &handlers.StateHandler{Col: stateCol}
+	h := &handlers.StateHandler{Col: stateCol, RedisClient: *RedisCache}
 	e.GET("/", func(c echo.Context) error {
 		return c.String(http.StatusOK, "Hello, World!")
 	})
