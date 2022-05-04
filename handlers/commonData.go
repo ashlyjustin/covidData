@@ -1,7 +1,6 @@
 package handlers
 
 import (
-	"fmt"
 	"time"
 )
 
@@ -44,11 +43,49 @@ var StateCodesList = [...]string{
 	"UT",
 	"WB",
 }
-
-func Common() {
-	fmt.Println("from common")
+var StateNameMap = map[string]string{
+	"AN": "Andaman & Nicobar Islands",
+	"AP": "Andhra Pradesh",
+	"AR": "Arunachal Pradesh",
+	"AS": "Assam",
+	"BR": "Bihar",
+	"CH": "Chandigarh",
+	"CT": "Chhattisgarh",
+	"DL": "Delhi",
+	"DN": "Dadra & Nagar Haveli",
+	"GA": "Goa",
+	"GJ": "Gujarat",
+	"HP": "Himachal Pradesh",
+	"HR": "Haryana",
+	"JH": "Jharkhand",
+	"JK": "Jammu & Kashmir",
+	"KA": "Karnataka",
+	"KL": "Kerala",
+	"LA": "Ladakh",
+	"LD": "Lakshwadeep",
+	"MH": "Maharashtra",
+	"ML": "Meghalaya",
+	"MN": "Manipur",
+	"MP": "Madhya Pradesh",
+	"MZ": "Mizoram",
+	"NL": "Nagaland",
+	"OR": "Orrisa",
+	"PB": "Punjab",
+	"PY": "Pondicherry",
+	"RJ": "Rajasthan",
+	"SK": "Sikkim",
+	"TG": "Telangana",
+	"TN": "Tamil Nadu",
+	"TR": "Tripura",
+	"UP": "Uttar Pradesh",
+	"UT": "Uttarakhand",
+	"WB": "West Bengal",
 }
 
+type SingleState struct {
+	State     State  `json:"State" bson:"State"`
+	StateName string `json:"StateName"`
+}
 type State struct {
 	// ID        primitive.ObjectID `json:"_id" bson:"_id"`
 	StateCode string    `json:"StateCode" bson:"StateCode"`

@@ -5,9 +5,11 @@ import (
 	"covidApp/handlers"
 	"encoding/json"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"log"
 	"net/http"
+	"text/template"
 	"time"
 
 	"github.com/go-redis/redis/v8"
@@ -71,10 +73,6 @@ func createMongoConnection() {
 	}
 	db = c.Database(handlers.Cfg.Database)
 	stateCol = db.Collection(handlers.Cfg.Collection)
-	filter := make(map[string]interface{})
-	DeleteResult, err := stateCol.DeleteMany(context.Background(), filter)
-	fmt.Println(DeleteResult)
-	fmt.Println(c, stateCol, "state collection")
 	createRedisCache()
 	postCovidData()
 
@@ -149,12 +147,45 @@ func createRedisCache() {
 	}
 }
 
+type Links struct {
+	Url  string
+	Name string
+}
+
 func main() {
 	e.Use(middleware.Logger())
 	e.Use(middleware.Recover())
 	h := &handlers.StateHandler{Col: stateCol, RedisClient: *RedisCache}
+	e.Renderer = &TemplateRegistry{
+		templates: template.Must(template.ParseGlob("views/*.html")),
+	}
 	e.GET("/getUserState", h.GetUserStateData)
 	e.GET("/getStateData", h.GetStateData)
-	e.Static("/swaggerui", "cmd/api/swaggerui")
+	e.GET("/*", HomeHandler)
 	e.Logger.Fatal(e.Start(":1323"))
+}
+
+type TemplateRegistry struct {
+	templates *template.Template
+}
+
+// Implement e.Renderer interface
+func (t *TemplateRegistry) Render(w io.Writer, name string, data interface{}, c echo.Context) error {
+	return t.templates.ExecuteTemplate(w, name, data)
+}
+func HomeHandler(c echo.Context) error {
+	// Please note the the second parameter "home.html" is the template name and should
+	// be equal to the value stated in the {{ define }} statement in "views/home.html"
+	Link := []Links{
+		{
+			Name: "Get All State Data",
+			Url:  "https://5977-2401-4900-1c09-acb8-4985-d5a-83bf-2e51.in.ngrok.io/getStateData",
+		},
+		{
+			Name: "Get Your State Data",
+			Url:  "https://5977-2401-4900-1c09-acb8-4985-d5a-83bf-2e51.in.ngrok.io/getUserState",
+		},
+	}
+	return c.Render(http.StatusOK, "index.html", Link)
+
 }

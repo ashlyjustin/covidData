@@ -1,12 +1,16 @@
-<!DOCTYPE html>
+{{define "index.html"}}
 <html>
 <head>
     <title>Covid Statistics</title>
 </head>
 <body>
     <h2> Get Covid Case Data for all states in India</h2>
-    {{range .Links}}
-    <a href="{{.Url}}">{{.Name}}</a>
+    {{range .}}
+    <ul>
+        <li><a href="{{.Url}}">{{.Name}}</a></li>
+    </ul>
+    
     {{end}}
 </body>
 </html>
+{{end}}

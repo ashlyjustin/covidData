@@ -81,7 +81,6 @@ func getRedisData(ctx context.Context, keys []string, collection CollectionAPI, 
 			var tempStateData []State
 			cursor.All(ctx, &tempStateData)
 			if len(tempStateData) > 0 {
-				fmt.Println(tempStateData[0])
 				singleState = tempStateData[0]
 				singleStateEncoding, _ := json.Marshal(singleState)
 				redisError := redisCache.Set(ctx, string(key), singleStateEncoding, 30*time.Minute).Err()
@@ -108,13 +107,6 @@ func getRedisData(ctx context.Context, keys []string, collection CollectionAPI, 
 }
 
 func (h *StateHandler) GetUserStateData(c echo.Context) error {
-
-	// ip:="223.177.38.252"
-	// locationUrl:=Cfg.UserLocationUrl+ip+"?access_key="+Cfg.LocationApiKey§
-	// stateData, httpError := findStateData(context.Background(), c.QueryParams(), h.Col, &h.RedisClient)
-	// if httpError != nil {
-	// 	return c.JSON(httpError.Code, httpError.Message)
-	// }
 	ip, err := getIp(c.Request().Header)
 	if err != nil {
 		fmt.Println("ip is  $$ ", ip)
@@ -133,8 +125,6 @@ func (h *StateHandler) GetUserStateData(c echo.Context) error {
 }
 func getUserState(ip string, collection CollectionAPI, redisCache *redis.Client) (State, *echo.HTTPError) {
 	queryUrl := Cfg.UserLocationUrl + ip
-	// queryUrl = "http://api.ipstack.com/223.177.38.252?access_key=59327922c4a73c01000c9a0391e89dfb&format=1"
-	fmt.Println("queryUrl is", queryUrl)
 	client := &http.Client{}
 	var userState []State
 	desc, err := client.Get(queryUrl)
@@ -153,13 +143,12 @@ func getUserState(ip string, collection CollectionAPI, redisCache *redis.Client)
 	}
 	StateCode := string(userIpData["region"])
 	StateCode = StateCode[1 : len(StateCode)-1]
-	fmt.Println("Statecode is ", StateCode)
 	key := []string{}
 	key = append(key, StateCode)
 	userState, iperror := getRedisData(context.Background(), key[:], collection, redisCache)
 	if iperror != nil {
 		if len(userState) < 1 {
-			fmt.Println("data not found for DL")
+			fmt.Println("data not found for ", StateCode)
 			return State{}, echo.NewHTTPError(iperror.Code, "No data present for the state")
 		}
 	}
@@ -186,23 +175,4 @@ func getIp(req http.Header) (string, error) {
 	}
 
 	return "", fmt.Errorf("No valid ip found")
-}
-func getIP1(req http.Header, c echo.Context) (string, error) {
-	ip := c.RealIP()
-	netIP := net.ParseIP(ip)
-	if netIP != nil {
-		return ip, nil
-	}
-
-	//Get IP from X-FORWARDED-FOR header
-	ips := req.Get("X-FORWARDED-FOR")
-	splitIps := strings.Split(ips, ",")
-	for _, ip := range splitIps {
-		netIP := net.ParseIP(ip)
-		if netIP != nil {
-			return ip, nil
-		}
-	}
-
-	return string(netIP), nil
 }
