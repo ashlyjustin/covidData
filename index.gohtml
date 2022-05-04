@@ -1,0 +1,12 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Covid Statistics</title>
+</head>
+<body>
+    <h2> Get Covid Case Data for all states in India</h2>
+    {{range .Links}}
+    <a href="{{.Url}}">{{.Name}}</a>
+    {{end}}
+</body>
+</html>

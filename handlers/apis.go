@@ -70,13 +70,11 @@ func getRedisData(ctx context.Context, keys []string, collection CollectionAPI, 
 	var stateData []State
 	for _, key := range keys {
 		var singleState State
-		fmt.Println("key is", key)
 		val, err := redisCache.Get(ctx, string(key)).Bytes()
 		if err != nil {
 			cursor, err := collection.Find(ctx, bson.M{"StateCode": key})
 			if err != nil {
 				log.Errorf("Unable to find the state data : %v", err)
-				fmt.Println("not in redis state data")
 				return stateData,
 					echo.NewHTTPError(http.StatusNotFound, ErrorMessage{Message: "unable to find the state"})
 			}
@@ -91,12 +89,10 @@ func getRedisData(ctx context.Context, keys []string, collection CollectionAPI, 
 					fmt.Printf(redisError.Error())
 					echo.NewHTTPError(http.StatusUnprocessableEntity, ErrorMessage{Message: "unable to set cache state"})
 				}
-				fmt.Println("from db ", singleState)
 				stateData = append(stateData, singleState)
 			}
 
 		} else {
-			fmt.Println(key, "from redis cache", string(val), " setting redis cache ###")
 			parseError := json.Unmarshal(val, &singleState)
 			if parseError != nil {
 				log.Errorf("Unable to read the cursor : %v", parseError)
@@ -108,9 +104,9 @@ func getRedisData(ctx context.Context, keys []string, collection CollectionAPI, 
 
 		}
 	}
-	fmt.Println("return value is ", stateData)
 	return stateData, nil
 }
+
 func (h *StateHandler) GetUserStateData(c echo.Context) error {
 
 	// ip:="223.177.38.252"
@@ -121,19 +117,23 @@ func (h *StateHandler) GetUserStateData(c echo.Context) error {
 	// }
 	ip, err := getIp(c.Request().Header)
 	if err != nil {
-		fmt.Println(ip)
+		fmt.Println("ip is  $$ ", ip)
 	}
-	ip = "157.37.151.60"
+	// ip := "157.37.151.60"
 	state, httpError := getUserState(ip, h.Col, &h.RedisClient)
 	if httpError != nil {
 		return c.JSON(httpError.Code, httpError.Message)
 	}
+	objectData := User{
+		Ip:    ip,
+		State: state,
+	}
 
-	return c.JSON(http.StatusOK, state)
+	return c.JSON(http.StatusOK, objectData)
 }
 func getUserState(ip string, collection CollectionAPI, redisCache *redis.Client) (State, *echo.HTTPError) {
-	queryUrl := Cfg.LocationApiKey + ip + "?access_key=" + Cfg.LocationApiKey
-	queryUrl = "http://api.ipstack.com/223.177.38.252?access_key=59327922c4a73c01000c9a0391e89dfb&format=1"
+	queryUrl := Cfg.UserLocationUrl + ip
+	// queryUrl = "http://api.ipstack.com/223.177.38.252?access_key=59327922c4a73c01000c9a0391e89dfb&format=1"
 	fmt.Println("queryUrl is", queryUrl)
 	client := &http.Client{}
 	var userState []State
@@ -151,7 +151,7 @@ func getUserState(ip string, collection CollectionAPI, redisCache *redis.Client)
 		fmt.Println("user ip data unavailable", e)
 		return State{}, echo.NewHTTPError(http.StatusBadRequest, "State could not be found for the"+ip)
 	}
-	StateCode := string(userIpData["region_code"])
+	StateCode := string(userIpData["region"])
 	StateCode = StateCode[1 : len(StateCode)-1]
 	fmt.Println("Statecode is ", StateCode)
 	key := []string{}
@@ -186,4 +186,23 @@ func getIp(req http.Header) (string, error) {
 	}
 
 	return "", fmt.Errorf("No valid ip found")
+}
+func getIP1(req http.Header, c echo.Context) (string, error) {
+	ip := c.RealIP()
+	netIP := net.ParseIP(ip)
+	if netIP != nil {
+		return ip, nil
+	}
+
+	//Get IP from X-FORWARDED-FOR header
+	ips := req.Get("X-FORWARDED-FOR")
+	splitIps := strings.Split(ips, ",")
+	for _, ip := range splitIps {
+		netIP := net.ParseIP(ip)
+		if netIP != nil {
+			return ip, nil
+		}
+	}
+
+	return string(netIP), nil
 }

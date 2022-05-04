@@ -66,7 +66,8 @@ type MetaData struct {
 	Population  int       `json:"population" bson:"population"`
 }
 type User struct {
-	ip string
+	Ip    string `json:"ip"`
+	State State  `json:"state"`
 }
 type ErrorMessage struct {
 	Message string `json:"message"`
