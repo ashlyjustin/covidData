@@ -19,6 +19,21 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
+// @title Echo Swagger Example API
+// @version 1.0
+// @description This is a sample server server.
+// @termsOfService http://swagger.io/terms/
+
+// @contact.name API Support
+// @contact.url http://www.swagger.io/support
+// @contact.email support@swagger.io
+
+// @license.name Apache 2.0
+// @license.url http://www.apache.org/licenses/LICENSE-2.0.html
+
+// @host localhost:1323
+// @BasePath /
+// @schemes http
 var e = echo.New()
 var mongoClient mongo.Client
 var (
@@ -119,41 +134,27 @@ func getAllCovidData() []handlers.State {
 	return stateData
 }
 
-type Object struct {
-	Str string
-	Num int
-}
-
 func createRedisCache() {
 	RedisCache = redis.NewClient(&redis.Options{
 		Addr:     "localhost:6379",
 		Password: "",
 		DB:       0,
 	})
-	ctx := context.Background()
 	pong, err := RedisCache.Ping(context.Background()).Result()
 	fmt.Println(pong, err)
-	err = RedisCache.Set(ctx, "name", "Elliot", 30*time.Minute).Err()
 	// if there has been an error setting the value
 	// handle the error
 	if err != nil {
 		fmt.Println(err)
 	}
-	val, err := RedisCache.Get(ctx, "AN").Result()
-	if err != nil {
-		fmt.Println(err)
-	}
-
-	fmt.Println(val)
 }
 
 func main() {
 	e.Use(middleware.Logger())
 	e.Use(middleware.Recover())
 	h := &handlers.StateHandler{Col: stateCol, RedisClient: *RedisCache}
-	e.GET("/", func(c echo.Context) error {
-		return c.String(http.StatusOK, "Hello, World!")
-	})
+	e.GET("/getUserState", h.GetUserStateData)
 	e.GET("/getStateData", h.GetStateData)
+	e.Static("/swaggerui", "cmd/api/swaggerui")
 	e.Logger.Fatal(e.Start(":1323"))
 }
