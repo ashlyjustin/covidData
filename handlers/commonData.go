@@ -86,6 +86,8 @@ type SingleState struct {
 	StateName string `json:"StateName"`
 	State     State  `json:"State" bson:"State"`
 }
+
+//add validations here of length
 type State struct {
 	// ID        primitive.ObjectID `json:"_id" bson:"_id"`
 	StateCode string    `json:"StateCode" bson:"StateCode"`
@@ -98,6 +100,8 @@ type TotalData struct {
 	Recovered int `json:"recovered" bson:"recovered"`
 	Deceased  int `json:"deceased" bson:"deceased"`
 }
+
+//add validations here of length  & convert to readable time form 24 hr format
 type MetaData struct {
 	LastUpdated time.Time `json:"last_updated" bson:"last_updated"`
 	Population  int       `json:"population" bson:"population"`
