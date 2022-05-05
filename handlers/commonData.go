@@ -83,8 +83,8 @@ var StateNameMap = map[string]string{
 }
 
 type SingleState struct {
-	State     State  `json:"State" bson:"State"`
 	StateName string `json:"StateName"`
+	State     State  `json:"State" bson:"State"`
 }
 type State struct {
 	// ID        primitive.ObjectID `json:"_id" bson:"_id"`
@@ -102,10 +102,16 @@ type MetaData struct {
 	LastUpdated time.Time `json:"last_updated" bson:"last_updated"`
 	Population  int       `json:"population" bson:"population"`
 }
-type User struct {
-	Ip    string `json:"ip"`
-	State State  `json:"state"`
+type UserState struct {
+	Location GeoLocation `json:"location"`
+	State    SingleState `json:"covidData"`
 }
 type ErrorMessage struct {
 	Message string `json:"message"`
+}
+type GeoLocation struct {
+	Region     string `json:"region" `
+	RegionName string `json:"regionName"`
+	City       string `json:"city"`
+	Timezone   string `json:"timezone"`
 }

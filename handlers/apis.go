@@ -40,8 +40,8 @@ func (h *StateHandler) GetStateData(c echo.Context) error {
 	}
 	return c.JSON(http.StatusOK, stateData)
 }
-func findStateData(ctx context.Context, q url.Values, collection CollectionAPI, redisCache *redis.Client) ([]State, *echo.HTTPError) {
-	var stateData []State
+func findStateData(ctx context.Context, q url.Values, collection CollectionAPI, redisCache *redis.Client) ([]SingleState, *echo.HTTPError) {
+	var stateData []SingleState
 	var keys []string
 	var err error
 	filter := make(map[string]interface{})
@@ -66,8 +66,8 @@ func findStateData(ctx context.Context, q url.Values, collection CollectionAPI, 
 
 	return stateData, nil
 }
-func getRedisData(ctx context.Context, keys []string, collection CollectionAPI, redisCache *redis.Client) ([]State, *echo.HTTPError) {
-	var stateData []State
+func getRedisData(ctx context.Context, keys []string, collection CollectionAPI, redisCache *redis.Client) ([]SingleState, *echo.HTTPError) {
+	var stateData []SingleState
 	for _, key := range keys {
 		var singleState State
 		val, err := redisCache.Get(ctx, string(key)).Bytes()
@@ -88,7 +88,8 @@ func getRedisData(ctx context.Context, keys []string, collection CollectionAPI, 
 					fmt.Printf(redisError.Error())
 					echo.NewHTTPError(http.StatusUnprocessableEntity, ErrorMessage{Message: "unable to set cache state"})
 				}
-				stateData = append(stateData, singleState)
+
+				stateData = append(stateData, SingleState{State: singleState, StateName: StateNameMap[string(key)]})
 			}
 
 		} else {
@@ -99,7 +100,7 @@ func getRedisData(ctx context.Context, keys []string, collection CollectionAPI, 
 					echo.NewHTTPError(http.StatusUnprocessableEntity, ErrorMessage{Message: "unable to parse retrieved state"})
 			}
 
-			stateData = append(stateData, singleState)
+			stateData = append(stateData, SingleState{State: singleState, StateName: StateNameMap[string(key)]})
 
 		}
 	}
@@ -109,24 +110,19 @@ func getRedisData(ctx context.Context, keys []string, collection CollectionAPI, 
 func (h *StateHandler) GetUserStateData(c echo.Context) error {
 	ip, err := getIp(c.Request().Header)
 	if err != nil {
-		fmt.Println("ip is  $$ ", ip)
+		fmt.Printf(err.Error())
 	}
-	// ip := "157.37.151.60"
-	state, httpError := getUserState(ip, h.Col, &h.RedisClient)
+	userState, httpError := getUserState(ip, h.Col, &h.RedisClient)
 	if httpError != nil {
 		return c.JSON(httpError.Code, httpError.Message)
 	}
-	objectData := User{
-		Ip:    ip,
-		State: state,
-	}
 
-	return c.JSON(http.StatusOK, objectData)
+	return c.JSON(http.StatusOK, userState)
 }
-func getUserState(ip string, collection CollectionAPI, redisCache *redis.Client) (State, *echo.HTTPError) {
+func getUserState(ip string, collection CollectionAPI, redisCache *redis.Client) (UserState, *echo.HTTPError) {
 	queryUrl := Cfg.UserLocationUrl + ip
 	client := &http.Client{}
-	var userState []State
+	var userState []SingleState
 	desc, err := client.Get(queryUrl)
 	if err != nil {
 		fmt.Print(err)
@@ -135,26 +131,28 @@ func getUserState(ip string, collection CollectionAPI, redisCache *redis.Client)
 	if err != nil {
 		panic(err)
 	}
-	userIpData := make(map[string]json.RawMessage)
-	e := json.Unmarshal(jsonData, &userIpData)
+	// userIpData := make(map[string]json.RawMessage)
+	var geoLocationData GeoLocation
+	e := json.Unmarshal(jsonData, &geoLocationData)
 	if e != nil {
 		fmt.Println("user ip data unavailable", e)
-		return State{}, echo.NewHTTPError(http.StatusBadRequest, "State could not be found for the"+ip)
+		return UserState{Location: GeoLocation{}, State: SingleState{}}, echo.NewHTTPError(http.StatusBadRequest, "State could not be found for the"+ip)
 	}
-	StateCode := string(userIpData["region"])
-	StateCode = StateCode[1 : len(StateCode)-1]
+	StateCode := geoLocationData.Region
+	// StateCode = StateCode[1 : len(StateCode)-1]
 	key := []string{}
 	key = append(key, StateCode)
+	fmt.Println("key is", StateCode)
 	userState, iperror := getRedisData(context.Background(), key[:], collection, redisCache)
 	if iperror != nil {
 		if len(userState) < 1 {
 			fmt.Println("data not found for ", StateCode)
-			return State{}, echo.NewHTTPError(iperror.Code, "No data present for the state")
+			return UserState{Location: geoLocationData, State: SingleState{State: State{}, StateName: StateNameMap[StateCode]}}, echo.NewHTTPError(iperror.Code, "No data present for the state")
 		}
 	}
 	fmt.Println(userState)
 
-	return userState[0], nil
+	return UserState{Location: geoLocationData, State: userState[0]}, nil
 
 }
 func getIp(req http.Header) (string, error) {
