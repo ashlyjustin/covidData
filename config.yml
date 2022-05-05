@@ -1,4 +1,9 @@
 COVID_DATA_URL: "https://data.covid19india.org/v4/min/data.min.json"
-MONGO_DB_URL : "mongodb+srv://ashlyjustin:iamgroot@coviddatacluster.ssyqx.mongodb.net/Covid?retryWrites=true&w=majority"
-DATABASE : "Covid"
-COLLECTION : "StateData"
+MONGO_DB_URL : "<insert your db endpoint here with access key>"
+DATABASE : "<Database Name>"
+COLLECTION : "<Collection Name>"
+REDIS_URL : ""
+USER_LOCATION_URL : "http://ip-api.com/json/"
+
+
+# "http://api.ipstack.com/"
