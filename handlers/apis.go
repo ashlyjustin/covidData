@@ -69,25 +69,38 @@ func getRedisData(ctx context.Context, keys []string, collection CollectionAPI, 
 		var singleState State
 		val, err := redisCache.Get(ctx, string(key)).Bytes()
 		if err != nil {
-			cursor, err := collection.Find(ctx, bson.M{"StateCode": key})
+			cursor, err := collection.FindOne(ctx, bson.M{"StateCode": key}).DecodeBytes()
 			if err != nil {
 				log.Errorf("Unable to find the state data : %v", err)
 				return stateData,
 					echo.NewHTTPError(http.StatusNotFound, ErrorMessage{Message: "unable to find the state"})
 			}
-			var tempStateData []State
-			cursor.All(ctx, &tempStateData)
-			if len(tempStateData) > 0 {
-				singleState = tempStateData[0]
+			// var tempStateData []State
+			parseError := bson.Unmarshal(cursor, &singleState)
+			if parseError != nil {
+				log.Errorf("Unable to read the cursor : %v", parseError)
+				return stateData,
+					echo.NewHTTPError(http.StatusUnprocessableEntity, ErrorMessage{Message: "unable to parse retrieved state"})
+			} else {
 				singleStateEncoding, _ := json.Marshal(singleState)
 				redisError := redisCache.Set(ctx, string(key), singleStateEncoding, 30*time.Minute).Err()
 				if redisError != nil {
 					fmt.Println(redisError.Error())
-					echo.NewHTTPError(http.StatusUnprocessableEntity, ErrorMessage{Message: "unable to set cache state"})
+					echo.NewHTTPError(http.StatusUnprocessableEntity, ErrorMessage{Message: "unable to update cache state"})
 				}
-
 				stateData = append(stateData, SingleState{State: singleState, StateName: StateNameMap[string(key)]})
 			}
+			// if len(tempStateData) > 0 {
+			// 	singleState = tempStateData[0]
+			// 	singleStateEncoding, _ := json.Marshal(singleState)
+			// 	redisError := redisCache.Set(ctx, string(key), singleStateEncoding, 30*time.Minute).Err()
+			// 	if redisError != nil {
+			// 		fmt.Println(redisError.Error())
+			// 		echo.NewHTTPError(http.StatusUnprocessableEntity, ErrorMessage{Message: "unable to set cache state"})
+			// 	}
+
+			// 	stateData = append(stateData, SingleState{State: singleState, StateName: StateNameMap[string(key)]})
+			// }
 
 		} else {
 			fmt.Println("Got data from cache redis")
@@ -97,7 +110,6 @@ func getRedisData(ctx context.Context, keys []string, collection CollectionAPI, 
 				return stateData,
 					echo.NewHTTPError(http.StatusUnprocessableEntity, ErrorMessage{Message: "unable to parse retrieved state"})
 			}
-
 			stateData = append(stateData, SingleState{State: singleState, StateName: StateNameMap[string(key)]})
 
 		}
@@ -130,6 +142,7 @@ func getUserState(ip string, collection CollectionAPI, redisCache *redis.Client)
 	if err != nil {
 		panic(err)
 	}
+	defer desc.Body.Close()
 	// userIpData := make(map[string]json.RawMessage)
 	var geoLocationData GeoLocation
 	e := json.Unmarshal(jsonData, &geoLocationData)
