@@ -38,7 +38,7 @@ import (
 // @schemes http
 var e = echo.New()
 var (
-	c          *mongo.Client
+	c          *mongo.Client // create client pool and select free client to reduce load
 	db         *mongo.Database
 	stateCol   *mongo.Collection
 	RedisCache *redis.Client
