@@ -37,7 +37,6 @@ import (
 // @BasePath /
 // @schemes http
 var e = echo.New()
-var mongoClient mongo.Client
 var (
 	c          *mongo.Client
 	db         *mongo.Database
@@ -51,19 +50,18 @@ func init() {
 	if err != nil {
 		e.Logger.Fatal("Unable to load configuration")
 	}
-	fmt.Println(handlers.Cfg)
 	createMongoConnection()
 }
 func createMongoConnection() {
 	serverAPIOptions := options.ServerAPI(options.ServerAPIVersion1)
 	clientOptions := options.Client().
-		ApplyURI("mongodb+srv://ashlyjustin:iamgroot@coviddatacluster.ssyqx.mongodb.net/Covid?retryWrites=true&w=majority").
+		ApplyURI(handlers.Cfg.MongoUrl).
 		SetServerAPIOptions(serverAPIOptions)
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	fmt.Println("connected")
 	defer cancel()
 	var err error
-	c, err := mongo.Connect(ctx, clientOptions)
+	c, err = mongo.Connect(ctx, clientOptions)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -77,46 +75,47 @@ func createMongoConnection() {
 	postCovidData()
 
 }
-func postCovidData() {
+func postCovidData() error {
 	fmt.Println("inside mongo client post")
 
-	var allStateData []handlers.State
-	allStateData = getAllCovidData()
-	fmt.Println("reeached insert", allStateData)
+	// var allStateData []handlers.State
+	allStateData, err := getAllCovidData()
+	if err != nil {
+		fmt.Println(err.Error())
+		return err
+	}
 	count := 0
 	for _, state := range allStateData {
 		filter := bson.M{"StateCode": state.StateCode}
-		// not:=bson.M{"Total":state.Total,"Meta":state.Meta}}
 		update := bson.M{"$set": state}
 		opts := options.Update().SetUpsert(true)
 
 		_, err := stateCol.UpdateOne(context.TODO(), filter, update, opts)
 		if err != nil {
-			panic(err)
+			log.Printf("Could not set data for %s", state.StateCode)
+		} else {
+			count++
 		}
-		count++
 	}
-	fmt.Println("Total updated objects : ", count)
-
-	// covidCollection.InsertMany(json.Marshal(all÷StateData))
+	log.Println("Total updated objects : ", count)
+	return nil
 }
-func getAllCovidData() []handlers.State {
-	fmt.Println("inside get covid data")
+func getAllCovidData() ([]handlers.State, error) {
 	client := &http.Client{}
 	desc, err := client.Get(handlers.Cfg.CovidDataUrl)
 	if err != nil {
 		fmt.Print(err)
 	}
+	defer desc.Body.Close()
 	jsonData, err := ioutil.ReadAll(desc.Body)
 	if err != nil {
-		panic(err)
+		return []handlers.State{}, err
 	}
 	allStateData := make(map[string]json.RawMessage)
-	// unmarschal JSON
 	e := json.Unmarshal(jsonData, &allStateData)
 
 	if e != nil {
-		panic(e)
+		return []handlers.State{}, e
 	}
 
 	var stateData []handlers.State
@@ -129,7 +128,8 @@ func getAllCovidData() []handlers.State {
 		state.StateCode = key
 		stateData = append(stateData, state)
 	}
-	return stateData
+
+	return stateData, nil
 }
 
 func createRedisCache() {
@@ -138,11 +138,9 @@ func createRedisCache() {
 		Password: "",
 		DB:       0,
 	})
-	pong, err := RedisCache.Ping(context.Background()).Result()
-	fmt.Println(pong, err)
-	// if there has been an error setting the value
-	// handle the error
+	_, err := RedisCache.Ping(context.Background()).Result()
 	if err != nil {
+		fmt.Println("Could not connect to redis")
 		fmt.Println(err)
 	}
 }
@@ -151,20 +149,6 @@ type Links struct {
 	Url  string
 	Name string
 }
-
-func main() {
-	e.Use(middleware.Logger())
-	e.Use(middleware.Recover())
-	h := &handlers.StateHandler{Col: stateCol, RedisClient: *RedisCache}
-	e.Renderer = &TemplateRegistry{
-		templates: template.Must(template.ParseGlob("views/*.html")),
-	}
-	e.GET("/getUserState", h.GetUserStateData)
-	e.GET("/getStateData", h.GetStateData)
-	e.GET("/*", HomeHandler)
-	e.Logger.Fatal(e.Start(":1323"))
-}
-
 type TemplateRegistry struct {
 	templates *template.Template
 }
@@ -179,13 +163,27 @@ func HomeHandler(c echo.Context) error {
 	Link := []Links{
 		{
 			Name: "Get All State Data",
-			Url:  "https://5977-2401-4900-1c09-acb8-4985-d5a-83bf-2e51.in.ngrok.io/getStateData",
+			Url:  "https://0e59-45-118-158-243.in.ngrok.io/getStateData",
 		},
 		{
 			Name: "Get Your State Data",
-			Url:  "https://5977-2401-4900-1c09-acb8-4985-d5a-83bf-2e51.in.ngrok.io/getUserState",
+			Url:  "https://0e59-45-118-158-243.in.ngrok.io/getUserState",
 		},
 	}
 	return c.Render(http.StatusOK, "index.html", Link)
 
+}
+
+func main() {
+	e.Pre(middleware.RemoveTrailingSlash())
+	e.Use(middleware.Logger())
+	e.Use(middleware.Recover())
+	h := &handlers.StateHandler{Col: stateCol, RedisClient: *RedisCache}
+	e.Renderer = &TemplateRegistry{
+		templates: template.Must(template.ParseGlob("views/*.html")),
+	}
+	e.GET("/getUserState", h.GetUserStateData)
+	e.GET("/getStateData", h.GetStateData)
+	e.GET("/*", HomeHandler)
+	e.Logger.Fatal(e.Start(":1323"))
 }

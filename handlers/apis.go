@@ -17,8 +17,6 @@ import (
 	"go.mongodb.org/mongo-driver/bson"
 )
 
-var e = echo.New()
-
 type StateHandler struct {
 	Col         CollectionAPI
 	RedisClient redis.Client
@@ -48,7 +46,6 @@ func findStateData(ctx context.Context, q url.Values, collection CollectionAPI, 
 	for k, v := range q {
 		filter[k] = v[0]
 	}
-	fmt.Println("filter is ", filter)
 	value, StateCode := filter["StateCode"]
 	if StateCode {
 		key, e := json.Marshal(value)
@@ -58,7 +55,7 @@ func findStateData(ctx context.Context, q url.Values, collection CollectionAPI, 
 		keys = append(keys, string(key))
 		stateData, err = getRedisData(ctx, keys, collection, redisCache)
 		if err != nil {
-			fmt.Println("Error in getting data from redis")
+			fmt.Println(err.Error())
 		}
 	} else {
 		stateData, err = getRedisData(ctx, StateCodesList[:], collection, redisCache)
@@ -85,7 +82,7 @@ func getRedisData(ctx context.Context, keys []string, collection CollectionAPI, 
 				singleStateEncoding, _ := json.Marshal(singleState)
 				redisError := redisCache.Set(ctx, string(key), singleStateEncoding, 30*time.Minute).Err()
 				if redisError != nil {
-					fmt.Printf(redisError.Error())
+					fmt.Println(redisError.Error())
 					echo.NewHTTPError(http.StatusUnprocessableEntity, ErrorMessage{Message: "unable to set cache state"})
 				}
 
@@ -93,6 +90,7 @@ func getRedisData(ctx context.Context, keys []string, collection CollectionAPI, 
 			}
 
 		} else {
+			fmt.Println("Got data from cache redis")
 			parseError := json.Unmarshal(val, &singleState)
 			if parseError != nil {
 				log.Errorf("Unable to read the cursor : %v", parseError)
@@ -110,7 +108,8 @@ func getRedisData(ctx context.Context, keys []string, collection CollectionAPI, 
 func (h *StateHandler) GetUserStateData(c echo.Context) error {
 	ip, err := getIp(c.Request().Header)
 	if err != nil {
-		fmt.Printf(err.Error())
+		fmt.Println(err.Error())
+		return c.HTML(http.StatusForbidden, "Request from source invalid")
 	}
 	userState, httpError := getUserState(ip, h.Col, &h.RedisClient)
 	if httpError != nil {
@@ -172,5 +171,5 @@ func getIp(req http.Header) (string, error) {
 		}
 	}
 
-	return "", fmt.Errorf("No valid ip found")
+	return "", fmt.Errorf(" no valid ip found")
 }
